@@ -1,12 +1,12 @@
-#ifndef DATA_STRUC_H
-#define DATA_STRUC_H
+#ifndef BASIC_DATA_H
+#define BASIC_DATA_H
 
 #include <vector>
 #include <iostream>
 
 typedef float Reel;     
 
-// Template class for Vector
+
 template <typename T>
 class Vector : public std::vector<T> {
 public:
@@ -14,7 +14,7 @@ public:
     Vector();
     Vector(size_t size, T defaultValue = T());
     
-    // Overloaded operators (to be implemented)
+    // Overloaded operators
     Vector<T>& operator+=(const Vector<T>& other);
     Vector<T>& operator-=(const Vector<T>& other);
     Vector<T>& operator*=(T scalar);
@@ -34,7 +34,7 @@ public:
 
 typedef Vector<Reel> Vecteur; // Alias for real-valued vectors
 
-// Template class for Matrix
+
 template <typename T>
 class Matrix : public Vector<T> {
 private:
@@ -47,13 +47,13 @@ public:
     T& operator()(size_t i, size_t j);
     const T& operator()(size_t i, size_t j) const;
     
-    // Overloaded operators (to be implemented)
+    // Overloaded operators
     Matrix<T>& operator+=(const Matrix<T>& other);
     Matrix<T>& operator-=(const Matrix<T>& other);
     Matrix<T>& operator*=(T scalar);
     Matrix<T>& operator/=(T scalar);
     
-    // Matrix-vector and vector-matrix multiplication (to be implemented)
+    // Matrix-vector and vector-matrix multiplication
     Vector<T> operator*(const Vector<T>& vec) const;
     Matrix<T> operator*(const Matrix<T>& other) const;
     
@@ -68,5 +68,7 @@ public:
     }
 };
 
+typedef Matrix<Reel> Matrice; // Alias for real-valued matrices
 
-#endif // DATA_STRUC_H
+
+#endif // BASIC_DATA_H
