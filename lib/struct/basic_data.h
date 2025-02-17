@@ -4,7 +4,8 @@
 #include <vector>
 #include <iostream>
 
-typedef float Reel;     
+typedef float Reel; // Alias for real numbers
+typedef size_t Integer; // Alias for positive integers
 
 
 template <typename T>
@@ -32,7 +33,7 @@ public:
     }
 };
 
-typedef Vector<Reel> Vecteur; // Alias for real-valued vectors
+typedef Vector<Reel> RVector; // Alias for real-valued vectors
 
 
 template <typename T>
@@ -56,6 +57,8 @@ public:
     // Matrix-vector and vector-matrix multiplication
     Vector<T> operator*(const Vector<T>& vec) const;
     Matrix<T> operator*(const Matrix<T>& other) const;
+
+    Matrix<T> transpose() const;
     
     friend std::ostream& operator<<(std::ostream& os, const Matrix<T>& mat) {
         for (size_t i = 0; i < mat.rows; ++i) {
@@ -68,7 +71,16 @@ public:
     }
 };
 
-typedef Matrix<Reel> Matrice; // Alias for real-valued matrices
+typedef Matrix<Reel> RMatrix; // Alias for real-valued matrices
 
+RMatrix outerprod(const RVector& a, const RVector& b) {
+    RMatrix result(a.size(), b.size());
+    for (size_t i = 0; i < a.size(); ++i) {
+        for (size_t j = 0; j < b.size(); ++j) {
+            result(i, j) = a[i] * b[j];
+        }
+    }
+    return result;
+}
 
 #endif // BASIC_DATA_H
