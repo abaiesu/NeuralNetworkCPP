@@ -69,7 +69,7 @@ protected:
     std::vector<std::vector<Reel>> K; // Convolution kernel
     Integer mu = 1, nu = 1; // Strides
     Integer i0 = 1, j0 = 1; // Start indices
-    bool memeTaille = false; // Preserve original size (padding)
+    bool same_size = false; // Preserve original size (padding)
 
 public:
     void randomK(Integer p, Integer q = 0);
