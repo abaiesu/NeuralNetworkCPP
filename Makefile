@@ -47,6 +47,7 @@ endif
 # define any directories containing header files other than /usr/include
 INCLUDES	:= $(patsubst %,-I%, $(INCLUDEDIRS:%/=%))
 
+
 # define the C libs
 LIBS		:= $(patsubst %,-L%, $(LIBDIRS:%/=%))
 
