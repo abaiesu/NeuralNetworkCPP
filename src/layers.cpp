@@ -126,14 +126,11 @@ void Dense::backprop() {
             //std :: cout << "get dX_dPrevX_Dense Actv" << std::endl;
             GradX = dynamic_cast<Activation*>(next)->get_dX_dPrevX_Dense() * next->GradX; // only update the GradX
         } else{
-            //std::cerr << "Dense::backprop: next layer is not Dense or Activation" << std::endl;
+            std::cerr << "Dense::backprop: next layer is not Dense or Activation" << std::endl;
         }
-        //std :: cout << "okkkkkkkkkkkkkkkkkkkkkk " << std::endl;
         //GradX = next_X_vs_PrevX * next->GradX; // only update the GradX
         //std:: cout << "not first layer in backprop" << std::endl;
     }
-
-    //std :: cout << "hi iiiiiiiiiiiii";
     // Compute gradW and gradWm
     Layer* prev = this->prevL(); // get pointer to the previous layer
     //std :: cout << "vecteur prev->X: " << prev->X.size() << std::endl;
@@ -191,6 +188,119 @@ void Loss::forwardprop() {
     //std :: cout << "vref: " << vref << std::endl;
     //std :: cout << "X: " << X << "\n" << std::endl;
 }
+// ------------------------------- HELPERS -----------------------------------
+
+
+// Helper function: backpropagation for a convolution next layer
+void updateGradXFromConvolution(Layer* next, RTensor &GradX, const RTensor &X) {
+    Integer next_channels = next->dims[2];
+    Integer ker_size_next = dynamic_cast<Convolution*>(next)->ker_size;
+    RTensor W_next = dynamic_cast<Convolution*>(next)->W;
+    
+    for (Integer i = 0; i < GradX.dims(0); i++) {
+        for (Integer j = 0; j < GradX.dims(1); j++) {
+            for (Integer c = 0; c < GradX.dims(2); c++) {
+                GradX(i, j, c) = 0; // Initialize gradient to zero
+                for (Integer u = 0; u < ker_size_next; u++) {
+                    for (Integer v = 0; v < ker_size_next; v++) {
+                        for (Integer k = 0; k < next_channels; k++) {
+                            GradX(i, j, c) += 
+                                W_next(ker_size_next - 1 - u, ker_size_next - 1 - v, k, c)
+                                * next->GradX(i + u, j + v, k);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Helper function: backpropagation for a pooling next layer (mean and max)
+void updateGradXFromPooling(Layer* next, RTensor &GradX, const RTensor &X) {
+    Pool* poolLayer = dynamic_cast<Pool*>(next);
+    Integer pool_size = poolLayer->p;
+    Integer stride = poolLayer->stride;
+    
+    if (poolLayer->typeP == _meanPool) {
+        for (Integer x = 0; x < GradX.dims(0); ++x) {
+            for (Integer y = 0; y < GradX.dims(1); ++y) {
+                for (Integer k = 0; k < GradX.dims(2); ++k) {
+                    GradX(x, y, k) = 0; // Initialize gradient
+                    for (Integer u = 0; u < pool_size; ++u) {
+                        for (Integer v = 0; v < pool_size; ++v) {
+                            Integer i = x * stride + u;
+                            Integer j = y * stride + v;
+                            if (i < next->dims[0] && j < next->dims[1]) {
+                                GradX(x, y, k) += next->GradX(i, j, k) / (pool_size * pool_size);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } 
+    else if (poolLayer->typeP == _maxPool) {
+        for (Integer x = 0; x < GradX.dims(0); ++x) {
+            for (Integer y = 0; y < GradX.dims(1); ++y) {
+                for (Integer k = 0; k < GradX.dims(2); ++k) {
+                    // Initialize the gradient at the pooling output
+                    GradX(x, y, k) = 0;
+                    Integer max_i = -1, max_j = -1;
+                    float max_val = -std::numeric_limits<float>::infinity();
+                    
+                    for (Integer u = 0; u < pool_size; ++u) {
+                        for (Integer v = 0; v < pool_size; ++v) {
+                            Integer i = x * stride + u;
+                            Integer j = y * stride + v;
+                            if (i < next->dims[0] && j < next->dims[1]) {
+                                if (X(i, j, k) > max_val) {
+                                    max_val = X(i, j, k);
+                                    max_i = i;
+                                    max_j = j;
+                                }
+                            }
+                        }
+                    }
+                    if (max_i != -1 && max_j != -1) {
+                        // Propagate the gradient only to the position that attained the max value
+                        GradX(max_i, max_j, k) = next->GradX(x, y, k);
+                    }
+                }
+            }
+        }
+    }
+    else {
+        std::cerr << "updateGradXFromPooling: Unsupported pooling type." << std::endl;
+    }
+}
+
+// Helper function: backpropagation for a flatten next layer
+void updateGradXFromFlatten(Layer* next, RTensor &GradX, const RTensor &X) {
+    for (Integer i = 0; i < GradX.dims(0); ++i) {
+        for (Integer j = 0; j < GradX.dims(1); ++j) {
+            for (Integer k = 0; k < GradX.dims(2); ++k) {
+                Integer p = i * X.dims(1) * X.dims(2) + j * X.dims(2) + k;
+                if (next->GradX.rank() != 1) {
+                    std::cerr << "updateGradXFromFlatten: GradX of Flatten layer rank is not 1" << std::endl;
+                }
+                GradX(i, j, k) = next->GradX(p);
+            }
+        }
+    }
+}
+
+// Helper function: backpropagation for an activation next layer
+void updateGradXFromActivation(Layer* next, RTensor &GradX, const RTensor &X) {
+    for (Integer i = 0; i < GradX.dims(0); ++i) {
+        for (Integer j = 0; j < GradX.dims(1); ++j) {
+            for (Integer k = 0; k < GradX.dims(2); ++k) {
+                GradX(i, j, k) = dynamic_cast<Activation*>(next)->dfun_activation(X(i, j, k))
+                                  * next->GradX(i, j, k);
+            }
+        }
+    }
+}
+
 
 // ------------------------------ ACTIVATION LAYER ---------------------------  
 void Activation::forwardprop() {
@@ -205,7 +315,9 @@ void Activation::forwardprop() {
         for (Integer i = 0; i < prev->dims[0]; ++i) {
             for (Integer j = 0; j < prev->dims[1]; ++j) {
                 for (Integer k = 0; k < prev->dims[2]; ++k) {
+                    //std :: cout << "try" << X(i, j, k) << std::endl;
                     X(i, j, k) = fun_activation(prev->X(i, j, k));
+                    //std :: cout << "try"<< std::endl;
                 }
             }
         }
@@ -223,12 +335,36 @@ void Activation::backprop() {
         GradX = loss->get_dfun_Loss()(true_labal, pred_labal);
         //std:: cout << "first layer in backprop" << std::endl;
     }else{
-        Layer* prev = this->prevL(); // Get previous layer
-        RTensor d_f_X_prev = RTensor(prev->X.size(), prev->X.size()); // empty square matrix
-        for (Integer i = 0; i < prev->X.size(); ++i) {
-            d_f_X_prev[i] = dfun_activation(prev->X[i]); // fill in diag
+        if (X.rank() == 1) { // next is also 1D   
+            Layer* next = this->nextL(); // get pointer to the next layer, it is a dense layer
+            //std :: cout << "Activation::trans: middle layer" << std::endl;
+            GradX = (next->W).transpose() * next->GradX; 
+            //std :: cout << "Activation::done: middle layer" << std::endl;
+        }else if (X.rank() == 3) { // next is also 3D
+            Layer* next = this->nextL(); // Get pointer to the next layer
+    
+            switch (next->type) {
+                case _Convolution:
+                    updateGradXFromConvolution(next, GradX, X);
+                    break;
+                case _Pool:
+                    updateGradXFromPooling(next, GradX, X);
+                    break;
+                case _Flatten:
+                    updateGradXFromFlatten(next, GradX, X);
+                    break;
+                case _Activation:
+                    updateGradXFromActivation(next, GradX, X);
+                    break;
+                default:
+                    std::cerr << "Convolution::backprop: next layer type is not supported." << std::endl;
+                    break;
+            }
+
+        }else{
+            std::cerr << "Activation::backprop: X is not a 1D or 3D tensor" << std::endl;   
         }
-        GradX = d_f_X_prev * prev->GradX; // only update the GradX
+
     }
 }
 
@@ -253,6 +389,8 @@ void Convolution::set_dims(Integer nb_channels_prev, Integer n_prev) {
     double fan_prev = nb_channels_prev * ker_size * ker_size;
     double fan_out = nb_kers * ker_size * ker_size;
     double limit = std::sqrt(6.0 / (fan_prev + fan_out));
+
+    W = RTensor(ker_size, ker_size, nb_channels_prev, nb_kers);
 
     // Initialize weights with uniform distribution in range [-limit, +limit]
     for (Integer oc = 0; oc < nb_kers; ++oc) {
@@ -286,7 +424,7 @@ void Convolution::forwardprop() {
     
     for (Integer outChan = 0; outChan < nb_kers; ++outChan) { // for each kernel of the conv layer 
         // We'll accumulate in a 2D matrix the partial sums
-        RTensor X_c(current_n, current_n, 0.0f); // this is one channel of the activation
+        RTensor X_c(current_n, current_n); // this is one channel of the activation
 
         for (Integer inChan = 0; inChan < nb_channels_prev; ++inChan){ // sum of the channels of the previous layer
             RTensor ker2D = W.slice_2d(inChan, outChan);
@@ -295,7 +433,7 @@ void Convolution::forwardprop() {
             RTensor PrevX_Channel = prevLayer->X.slice_2d(inChan);
             
             // Convolve
-            RTensor convRes = utils::convolve(ker2D, PrevX_Channel); // put the kernel first 
+            RTensor convRes = utils::convolve(ker2D, PrevX_Channel); // put the kernel first
 
             // accumulate convRes into X_c
             X_c += convRes;
@@ -307,69 +445,51 @@ void Convolution::forwardprop() {
 }
 
 
-void Convolution::backprop()
-{
-    // first compute GradX
-    Layer* next = this->nextL(); // get pointer to the next layer
-    Integer next_channels = next->dims[2]; // get the number of channels of the next layer
-    for(Integer i = 0; i< GradX.dims(0) ; i++){
-        for(Integer j = 0; j< GradX.dims(1) ; j++){
-            for(Integer k = 0; k< GradX.dims(2) ; k++){
-                GradX(i, j, k) = 0; // empty it first
-                for(Integer u = 0; u< GradW.dims(0) ; u++){
-                    for(Integer v = 0; v< GradW.dims(1) ; v++){
-                        for(Integer c = 0; c< next_channels ; c++){
-                            Reel dX_dPrevX;
-                            if (next->type == _Pool){
-                                if (dynamic_cast<Pool*>(next)->typeP == _meanPool){
-                                    dX_dPrevX = dynamic_cast<Pool*>(next)->get_dX_dPrevX_Conv();
-                                }
-                                else{
-                                    std::cerr << "Please chose MeanPool as the Pool type :((( " << std::endl;
-                                }
-                            }
-                            if (next->type == _Flatten){
-                                Integer prev_n = next->dims[0];
-                                Integer current_n = this->dims[0];
-                                Integer p = (i + u)*current_n*current_n + (j + v)*current_n + c;
-                                dX_dPrevX = dynamic_cast<Flatten*>(next)->get_dX_dPrevX_Conv(p, i, j, k, prev_n); 
-                            }
-                            if (next->type == _Activation){
-                                dX_dPrevX = dynamic_cast<Activation*>(next)->get_dX_dPrevX_Conv(i, j, k, i + u, j + v, c); 
-                            }
-                            else{
-                                std::cerr << "After a convolution layer, the next layer must be a Pool, a Flatten or an Activation layer" << std::endl;
-                            }
-                            GradX(i, j, k) += dX_dPrevX * W(u, v, c, k);
-                            
-                        }
-                    }
-                }
-            }
-        }
+void Convolution::backprop() {
+    // First compute GradX by calling the appropriate helper function based on the next layer type
+    Layer* next = this->nextL(); // Get pointer to the next layer
+    
+    switch (next->type) {
+        case _Convolution:
+            updateGradXFromConvolution(next, GradX, X);
+            break;
+        case _Pool:
+            updateGradXFromPooling(next, GradX, X);
+            break;
+        case _Flatten:
+            updateGradXFromFlatten(next, GradX, X);
+            break;
+        case _Activation:
+            updateGradXFromActivation(next, GradX, X);
+            break;
+        default:
+            std::cerr << "Convolution::backprop: next layer type is not supported." << std::endl;
+            break;
     }
-
-    // now compute GradW
-    Integer next_n = next->dims[0];
-    Layer* prev = this->prevL(); // get pointer to the previous layer
-    for(Integer i = 0; i< GradX.dims(0) ; i++){
-        for(Integer j = 0; j< GradX.dims(1) ; j++){
-            for(Integer k = 0; k< GradX.dims(2) ; k++){
-                for(Integer c = 0; c< W.dims(0) ; c++){
-                    // empty it first
-                    GradW(i, j, c, k) = 0;
-                    for(Integer u = 0; u < next_n; u++){
-                        for(Integer v = 0; v < next_n; v++){
-                            // prev->X will always be a tensor anyway (3D input, Conv, Pool)
-                            GradW(i, j, c, k) += GradX(u, v, k) * prev->X(i + u, j + v, c);
+    
+    // Now compute GradW (weight gradients)
+    Integer current_n = this->dims[0];
+    Layer* prev = this->prevL(); // Get pointer to the previous layer
+    
+    // Assuming W has dimensions: [ker_size, ker_size, in_channels, out_channels]
+    for (Integer i = 0; i < W.dims(0); i++) {
+        for (Integer j = 0; j < W.dims(1); j++) {
+            for (Integer k = 0; k < W.dims(2); k++) {
+                for (Integer c = 0; c < W.dims(3); c++) {
+                    // Initialize weight gradient to zero
+                    GradW(i, j, k, c) = 0;
+                    for (Integer u = 0; u < current_n; u++) {
+                        for (Integer v = 0; v < current_n; v++) {
+                            // prev->X is assumed to be a 3D tensor (for example, from a Conv or Pool layer)
+                            GradW(i, j, k, c) += GradX(u, v, c) * prev->X(i + u, j + v, k);
                         }
-                        
                     }
                 }
             }
         }
     }
 }
+
 
 // -------------------------------- REDUCTION LAYER ---------------------------
 
@@ -423,7 +543,74 @@ void Pool::forwardprop() {
     }
 }
 
+void Pool::backprop() {
+    Layer* next = this->nextL(); // Get pointer to the next layer
+    
+    switch(next->type) {
+        case _Convolution:
+            updateGradXFromConvolution(next, GradX, X);
+            break;
+            
+        case _Pool:
+            updateGradXFromPooling(next, GradX, X);
+            break;
+            
+        case _Flatten:
+            updateGradXFromFlatten(next, GradX, X);
+            break;
+            
+        case _Activation:
+            updateGradXFromActivation(next, GradX, X);
+            break;
+            
+        default:
+            std::cerr << "Pool::backprop: next layer type is not supported." << std::endl;
+            break;
+    }
+}
 
+// ------------------------------ FLATTEN LAYER ---------------------------
+
+void Flatten::backprop() {
+
+    // if before the last layer (recall that the last layer is the loss layer)
+    if (index == network->getLayers().size() - 2) {
+        Loss *loss = dynamic_cast<Loss*>(network->getLayers().back()); // the loss is the last layer
+        RTensor true_labal = loss->get_vref();
+        RTensor pred_labal = this->X;
+        GradX = loss->get_dfun_Loss()(true_labal, pred_labal);
+        //std:: cout << "first layer in backprop" << std::endl;
+    }else{
+        Layer* next = this->nextL(); // get pointer to the next layer
+        if (next->type == _Dense){
+            //std :: cout << "get dX_dPrevX_Dense Dense" << std::endl;
+            GradX = dynamic_cast<Dense*>(next)->get_dX_dPrevX_Dense() * next->GradX; // only update the GradX
+        }
+        else if (next->type == _Activation){
+            //std :: cout << "get dX_dPrevX_Dense Actv" << std::endl;
+            GradX = dynamic_cast<Activation*>(next)->get_dX_dPrevX_Dense() * next->GradX; // only update the GradX
+        } else{
+            std::cerr << "Flatten::backprop: next layer is not Dense or Activation" << std::endl;
+        }
+       
+    }
+}
+
+void Flatten::forwardprop() {
+    Layer* prev = this->prevL(); // Get previous layer
+    Integer prev_d1 = prev->dims[0]; // Get the size of the previous layer
+    Integer prev_d2 = prev->dims[1]; 
+    Integer prev_d3 = prev->dims[2]; // Get the number of channels of the previous layer
+    Integer k = 0;
+    for (Integer i = 0; i < prev_d1; ++i) {
+        for (Integer j = 0; j < prev_d2; ++j) {
+            for (Integer l = 0; l < prev_d3; ++l) {
+                X(k) = prev->X(i, j, l);
+                k++;
+            }
+        }
+    }
+}
 
 
 //-------------------------------- NETWORK METHODS ----------------------------
@@ -435,25 +622,38 @@ void Network::add(Layer* layer) {
         // note that Dense can only be applied if previous layer is flat so the dims are (n, 1, 1)
         dynamic_cast<Dense*>(layer)->set_dims(n_prev); // Cast the layer to Dense and set its parameters
     }
-    if (layer->type == _Activation){ // copy the dimensions of the previous layer
+    else if (layer->type == _Activation){ // copy the dimensions of the previous layer
         Layer* prev = layers.back(); // Get the previous layer
-        std::copy(std::begin(prev->dims), std::end(prev->dims), std::begin(layer->dims));
-        layer->X = RTensor(prev->X.size()); // Initialize X with the same size as the previous layer
+        Integer prev_d1 = prev->dims[0]; // Get the size of the previous layer
+        Integer prev_d2 = prev->dims[1];
+        Integer prev_d3 = prev->dims[2]; // Get the number of channels of the previous layer
+        TypeLayer prev_type = prev->type;
+        dynamic_cast<Activation*>(layer)->set_dims(prev_d1, prev_d2, prev_d3, prev_type); // Cast the layer to Dense and set its parameters
     }
-    if (layer->type == _Convolution){
+    else if (layer->type == _Convolution){
         Integer nb_channels_prev = layers.back()->dims[2]; //get the number of channels of the last layer of the network, for connection
         Integer n_prev = layers.back()->dims[0]; //get the size of the last layer of the network, for connection
+        //std :: cout << "nb_channels_prev: " << nb_channels_prev << " n_prev: " << n_prev << std::endl;
         dynamic_cast<Convolution*>(layer)->set_dims(nb_channels_prev, n_prev); // Cast the layer to Convolution and set its parameters
+        
     }
-    if (layer->type == _Pool){
+    else if (layer->type == _Pool){
         Layer* prev = layers.back(); // Get the previous layer
         Integer prev_n = prev->dims[0]; // Get the size of the previous layer
         Integer prev_c = prev->dims[2]; // Get the number of channels of the previous layer
         dynamic_cast<Pool*>(layer)->set_dims(prev_n, prev_c); 
+    } 
+    else if (layer->type == _Flatten){
+        Layer* prev = layers.back(); // Get the previous layer
+        Integer prev_d1 = prev->dims[0]; // Get the size of the previous layer
+        Integer prev_d2 = prev->dims[1]; 
+        Integer prev_d3 = prev->dims[2]; // Get the number of channels of the previous layer
+        dynamic_cast<Flatten*>(layer)->set_dims(prev_d1, prev_d2, prev_d3);
     }
     layers.push_back(layer); 
     layer->network = this;
     layer->index = layers.size() - 1;
+    //std :: cout << "layer added" << std::endl;
 }
 
 
@@ -475,6 +675,7 @@ void Network::forwardprop(const RTensor& x_i, const RTensor& y_i) {
 
     // Forward propagation through all layers, starting from the second layer
     for (size_t i = 1; i < layers.size(); ++i) {
+        //std :: cout << "forwardprop layer " << i << " of type " << layers[i]->type << std::endl;
         layers[i]->forwardprop();
     }
 }

@@ -134,8 +134,8 @@ public:
     }
     
     void set_channel(Integer c, const Tensor<T>& slice) {
-        if (rank_ != 4) {
-            throw std::runtime_error("Channel assignment is only applicable to 4D tensors.");
+        if (rank_ != 3) {
+            throw std::runtime_error("Channel assignment is only applicable to 3D tensors.");
         }
 
         if (slice.dims(0) != _dims[0] || slice.dims(1) != _dims[1]) {

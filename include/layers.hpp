@@ -114,6 +114,10 @@ public:
         X = RTensor(n);
         GradX = RTensor(n);
     }
+    Entry(Integer n1, Integer n2, Integer n3) : Layer(_Entry, n1, n2, n3) { // lorsque l'entrée est une image
+        X = RTensor(n1, n2, n3);
+        GradX = RTensor(n1, n2, n3);
+    }
     Entry* clone() const override { return new Entry(*this); }
     ~Entry() = default;
 };
@@ -153,7 +157,7 @@ public:
     void set_dims(Integer prev_n, Integer prev_c);
     
     void forwardprop() override;
-    void backprop() override{}; // no backpropagation since no params
+    void backprop() override; 
     
     // to be used when computing GradPrevX
     Reel get_dX_dPrevX_Conv() { return 1.0 / (p * p); }
@@ -273,8 +277,8 @@ class Flatten : public Layer {
             return 0;
         }
         Flatten* clone() const override { return new Flatten(*this); }
-        void forwardprop() override {}
-        void backprop() override {}
+        void forwardprop() override;
+        void backprop() override;
         ~Flatten() = default;
     };
 

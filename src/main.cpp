@@ -3,6 +3,8 @@
 #include <cstdlib>  
 #include <ctime> 
 #include <cmath>   
+#include <fstream>
+#include <string>
 #include "layers.hpp"
 #include "decl.hpp"
 
@@ -113,7 +115,7 @@ int main(int argc, char *argv[]) {
         network.add(new Dense(16));              // Dense layer with dimension 1
         network.add(new Activation(_tanh));      // Activation layer with ReLU activation function
         network.add(new Dense(16));              // Dense layer with dimension 1
-        network.add(new Activation(_tanh));      // Activation layer with ReLU activation function
+        network.add(new Activation(_relu));      // Activation layer with ReLU activation function
         network.add(new Dense(10));              // Dense layer with dimension 1
         network.add(new Activation(_tanh));      // Activation layer with ReLU activation function
         network.add(new Dense(1));              // Dense layer with dimension 1   
@@ -189,10 +191,95 @@ int main(int argc, char *argv[]) {
 
         network.test(test_data, test_labels);
 
-    }else if (example == 3){
-        print("Not implemented yet");
-    }else{
+    }else if (example == 4) {
+
+        print("Example 4 - 3D CNN regression");
+    
+        size_t n = 1000;
+        // Create dataset: each input is a 3D tensor of shape 8 x 8 x 3
+        std::vector<RTensor> data(n, RTensor(8, 8, 3));
+        std::vector<RTensor> labels(n, RTensor(1));
+    
+        // Generate random 3D inputs and compute the corresponding label
+        for (size_t i = 0; i < n; i++) {
+            // Fill the tensor with random values between 0 and 1
+            for (int r = 0; r < 8; r++) {
+                for (int c = 0; c < 8; c++) {
+                    for (int ch = 0; ch < 3; ch++) {
+                        data[i](r, c, ch) = static_cast<double>(std::rand() % 101) / 100.0;
+                    }
+                }
+            }
+            // Compute channel-wise averages
+            double sum0 = 0, sum1 = 0, sum2 = 0;
+            for (int r = 0; r < 8; r++) {
+                for (int c = 0; c < 8; c++) {
+                    sum0 += data[i](r, c, 0);
+                    sum1 += data[i](r, c, 1);
+                    sum2 += data[i](r, c, 2);
+                }
+            }
+            double avg0 = sum0 / (8 * 8);
+            double avg1 = sum1 / (8 * 8);
+            double avg2 = sum2 / (8 * 8);
+            // Compute label as a weighted combination of the averages
+            double output = 0.5 * avg0 + 2.0 * avg1 - 1.5 * avg2;
+            labels[i](0) = output;
+        }
+
+        // Build a CNN network
+        // The Entry layer now accepts a 3D input (8 x 8 x 3)
+        Network network("ex4_3d_cnn", 32, 50);
+        network.add(new Entry(8, 8, 3));
+        // Add a convolution layer 4 kernels of size 3 x 3
+        network.add(new Convolution(4, 3));
+        network.add(new Activation(_relu));
+        // Add a pooling layer (mean pooling with pool size 2 and stride 2)
+        network.add(new Pool(_meanPool, 2, 2));
+        // Flatten the 3D output into a vector
+        network.add(new Flatten());
+        // A Dense layer to map to 1 output
+        network.add(new Dense(1));
+        // Loss layer (using the mean squared error)
+        network.add(new Loss(_moindre_carre));
+    
+        network.print(std::cout);
+        
+        network.train(data, labels, _fixed, 0.01, 0.001);
+    
+        // Test the network with new random data
+        Integer num_test = 5;
+        std::vector<RTensor> test_data(num_test, RTensor(8, 8, 3));
+        std::vector<RTensor> test_labels(num_test, RTensor(1));
+        for (size_t i = 0; i < num_test; i++) {
+            for (int r = 0; r < 8; r++) {
+                for (int c = 0; c < 8; c++) {
+                    for (int ch = 0; ch < 3; ch++) {
+                        test_data[i](r, c, ch) = static_cast<double>(std::rand() % 101) / 100.0;
+                    }
+                }
+            }
+            double sum0 = 0, sum1 = 0, sum2 = 0;
+            for (int r = 0; r < 8; r++) {
+                for (int c = 0; c < 8; c++) {
+                    sum0 += test_data[i](r, c, 0);
+                    sum1 += test_data[i](r, c, 1);
+                    sum2 += test_data[i](r, c, 2);
+                }
+            }
+            double avg0 = sum0 / (8 * 8);
+            double avg1 = sum1 / (8 * 8);
+            double avg2 = sum2 / (8 * 8);
+            double output = 0.5 * avg0 + 2.0 * avg1 - 1.5 * avg2;
+            test_labels[i][0] = output;
+        }
+    
+        network.test(test_data, test_labels);
+    }
+            
+    else {
         std::cerr << "Invalid example number" << std::endl;
     }
     return 0;
 }
+    
