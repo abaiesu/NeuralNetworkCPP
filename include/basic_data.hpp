@@ -3,203 +3,245 @@
 
 #include <vector>
 #include <iostream>
+#include <stdexcept>
 
-typedef float Reel; // Alias for real numbers
-typedef size_t Integer; // Alias for positive integers
-
-
-template <typename T>
-class Vector : public std::vector<T> {
-public:
-    // Constructors
-    Vector() = default;
-    Vector(size_t len, T defaultValue = T()) {
-        this->resize(len, defaultValue);
-    }
-    Vector(const std::vector<T>& vec) {
-        this->resize(vec.size());
-        for (size_t i = 0; i < this->size(); ++i) {
-            (*this)[i] = vec[i];
-        }
-    }
-    
-    // Overloaded operators
-    Vector<T>& operator+=(const Vector<T>& other){
-        // check size compatibility
-        if (this->size() != other.size()) {
-            std::cerr << "Error: Vector sizes do not match! "
-                  << "Current size: " << this->size()
-                  << ", Other size: " << other.size() << std::endl;
-            throw std::invalid_argument("Vector sizes do not match");
-        }
-        for (size_t i = 0; i < this->size(); ++i) {
-            (*this)[i] += other[i];
-        }
-        return *this;
-    };
-    Vector<T>& operator-=(const Vector<T>& other){
-        // check size compatibility
-        if (this->size() != other.size()) {
-            std::cerr << "Error: Vector sizes do not match! "
-                  << "Current size: " << this->size()
-                  << ", Other size: " << other.size() << std::endl;
-            throw std::invalid_argument("Vector sizes do not match");
-        }
-        for (size_t i = 0; i < this->size(); ++i) {
-            (*this)[i] -= other[i];
-        }
-        return *this;
-    };
-    Vector<T>& operator*=(T scalar){
-        for (size_t i = 0; i < this->size(); ++i) {
-            (*this)[i] *= scalar;
-        }
-        return *this;
-    };
-    Vector<T>& operator/=(T scalar){
-        for (size_t i = 0; i < this->size(); ++i) {
-            (*this)[i] /= scalar;
-        }
-        return *this;
-    };
-    
-    // Dot product operator
-    T operator|(const Vector<T>& other) const {
-        // check size compatibility
-        if (this->size() != other.size()) {
-            std::cerr << "Error: Vector sizes do not match! "
-                  << "Current size: " << this->size()
-                  << ", Other size: " << other.size() << std::endl;
-            throw std::invalid_argument("Vector sizes do not match");
-        }
-        T result = 0;
-        for (size_t i = 0; i < this->size(); ++i) {
-            result += (*this)[i] * other[i];
-        }
-        return result;
-    }
-
-    // Element-wise multiplication
-    Vector<T> operator*(const Vector<T>& other) const {
-        // check size compatibility
-        if (this->size() != other.size()) {
-            std::cerr << "Error: Vector sizes do not match! "
-                  << "Current size: " << this->size()
-                  << ", Other size: " << other.size() << std::endl;
-            throw std::invalid_argument("Vector sizes do not match");
-        }
-        Vector<T> result(this->size());
-        for (size_t i = 0; i < this->size(); ++i) {
-            result[i] = (*this)[i] * other[i];
-        }
-        return result;
-    }
-    
-    // Output stream overload
-    friend std::ostream& operator<<(std::ostream& os, const Vector<T>& vec) {
-        for (const auto& val : vec) {
-            os << val << " ";
-        }
-        return os;
-    }
-};
-
-typedef Vector<Reel> RVector; // Alias for real-valued vectors
-
+using Reel = float;
+using Integer = size_t;
 
 template <typename T>
-class Matrix : public Vector<T> {
+class Tensor : public std::vector<T> {
+private:
+    Integer _dims[4] = {0, 0, 0, 0};
+    Integer rank_ = 0;
+
 public:
-    size_t rows, cols;
-
-    // Constructors
-    Matrix() : rows(0), cols(0) {}
-    Matrix(size_t rows, size_t cols, T defaultValue = T()) : rows(rows), cols(cols) {
-        this->resize(rows * cols, defaultValue);
+    // Constructors for 1D, 2D, 3D, 4D tensors
+    Tensor() = default;
+    Tensor(Integer d1) : rank_(1) {
+        _dims[0] = d1;
+        this->resize(d1, 0);
     }
-    Matrix(RVector vec) : rows(1), cols(vec.size()) {
-        this->resize(vec.size());
-        for (size_t i = 0; i < vec.size(); ++i) {
-            (*this)[i] = vec[i];
-        }
+    Tensor(Integer d1, Integer d2) : rank_(2) {
+        _dims[0] = d1; _dims[1] = d2;
+        this->resize(d1 * d2, 0);
     }
-    
-    // Access element at (i, j)
-    T& operator()(size_t i, size_t j){ //modifiable 
-        return (*this)[i * cols + j];
+    Tensor(Integer d1, Integer d2, Integer d3) : rank_(3) {
+        _dims[0] = d1; _dims[1] = d2; _dims[2] = d3;
+        this->resize(d1 * d2 * d3, 0);
     }
-    const T& operator()(size_t i, size_t j) const { // read only
-        return (*this)[i * cols + j];
-    }
-    
-    // Matrix-vector multiplication
-    Vector<T> operator*(const Vector<T>& vec) const{
-        // check size compatibility
-        if (cols != vec.size()) {
-            std::cerr << "Error: Sizes do not match!\n ";
-            std::cerr << "Matrix: ";
-            print_size(std::cerr);
-            std::cerr << "Vector: " << vec.size() << std::endl;
-            throw std::invalid_argument("Matrix and vector sizes do not match");
-        }
-        Vector<T> result(rows);
-        for (size_t i = 0; i < rows; ++i) {
-            result[i] = 0;
-            for (size_t j = 0; j < cols; ++j) {
-                result[i] += (*this)(i, j) * vec[j];
-            }
-        }
-        return result;
+    Tensor(Integer d1, Integer d2, Integer d3, Integer d4) : rank_(4) {
+        _dims[0] = d1; _dims[1] = d2; _dims[2] = d3; _dims[3] = d4;
+        this->resize(d1 * d2 * d3 * d4, 0);
     }
 
-    Matrix<T> operator*(const Matrix<T>& other) const{
-        // check size compatibility
-        if (cols != other.rows) {
-            std::cerr << "Error: Matrices cannot be multiplied! Dimensions do not match.\n";
-            std::cerr << "First matrix: ";
-            print_size(std::cerr);
-            std::cerr << "Second matrix: ";
-            other.print_size(std::cerr);
-            throw std::invalid_argument("Matrix sizes do not match");
-        }
-        Matrix<T> result(rows, other.cols);
-        for (size_t i = 0; i < rows; ++i) {
-            for (size_t j = 0; j < other.cols; ++j) {
-                result(i, j) = 0;
-                for (size_t k = 0; k < cols; ++k) {
-                    result(i, j) += (*this)(i, k) * other(k, j);
-                }
-            }
-        }
-        return result;
+    // Rank getter
+    int rank() const { return rank_; }
+    int dims(Integer d) const { return _dims[d]; }      
+    //Integer size(Integer d) const { return (d < rank_) ? _dims[d] : 0; }
+
+    // Access operators (read only)
+    const T& operator()(Integer i) const {
+        if (rank_ != 1) throw std::runtime_error("Rank mismatch in Tensor::operator()(i)");
+        if (i >= _dims[0]) throw std::runtime_error("Index out of bounds in Tensor::operator()(i)");
+        return (*this)[i];
+    }
+    const T& operator()(Integer i, Integer j) const {
+        if (rank_ != 2) throw std::runtime_error("Rank mismatch in Tensor::operator()(i,j)");
+        if (i >= _dims[0] || j >= _dims[1]) throw std::runtime_error("Index out of bounds in Tensor::operator()(i,j)");
+        return (*this)[i * _dims[1] + j];
+    }
+    const T& operator()(Integer i, Integer j, Integer k) const {
+        if (rank_ != 3) throw std::runtime_error("Rank mismatch in Tensor::operator()(i,j,k)");
+        if (i >= _dims[0] || j >= _dims[1] || k >= _dims[2]) throw std::runtime_error("Index out of bounds in Tensor::operator()(i,j,k)");
+        return (*this)[(i * _dims[1] + j) * _dims[2] + k];
+    }
+    const T& operator()(Integer i, Integer j, Integer k, Integer c) const {
+        if (rank_ != 4) throw std::runtime_error("Rank mismatch in Tensor::operator()(i,j,k,c)");
+        if (i >= _dims[0] || j >= _dims[1] || k >= _dims[2] || c >= _dims[3]) throw std::runtime_error("Index out of bounds in Tensor::operator()(i,j,k,c)");
+        return (*this)[((i * _dims[1] + j) * _dims[2] + k) * _dims[3] + c];
     }
 
-    Matrix<T> transpose() const{
-        Matrix<T> result(cols, rows);
-        for (size_t i = 0; i < rows; ++i) {
-            for (size_t j = 0; j < cols; ++j) {
+    // Access operators (modifable)
+    T& operator()(Integer i) {
+        if (rank_ != 1) throw std::runtime_error("Rank mismatch in Tensor::operator()(i)");
+        if (i >= _dims[0]) throw std::runtime_error("Index out of bounds in Tensor::operator()(i)");
+        return (*this)[i];
+    }
+    T& operator()(Integer i, Integer j) {
+        if (rank_ != 2) throw std::runtime_error("Rank mismatch in Tensor::operator()(i,j)");
+        if (i >= _dims[0] || j >= _dims[1]) throw std::runtime_error("Index out of bounds in Tensor::operator()(i,j)");
+        return (*this)[i * _dims[1] + j];
+    }
+    T& operator()(Integer i, Integer j, Integer k) {
+        if (rank_ != 3) throw std::runtime_error("Rank mismatch in Tensor::operator()(i,j,k)");
+        if (i >= _dims[0] || j >= _dims[1] || k >= _dims[2]) throw std::runtime_error("Index out of bounds in Tensor::operator()(i,j,k)");
+        return (*this)[(i * _dims[1] + j) * _dims[2] + k];
+    }
+    T& operator()(Integer i, Integer j, Integer k, Integer c) {
+        if (rank_ != 4) throw std::runtime_error("Rank mismatch in Tensor::operator()(i,j,k,c)");
+        if (i >= _dims[0] || j >= _dims[1] || k >= _dims[2] || c >= _dims[3]) throw std::runtime_error("Index out of bounds in Tensor::operator()(i,j,k,c)");
+        return (*this)[((i * _dims[1] + j) * _dims[2] + k) * _dims[3] + c];
+    }
+
+    // Scalar Multiplication
+    Tensor<T>& operator*=(T scalar) {
+        for (auto& val : *this) val *= scalar;
+        return *this;
+    }
+
+    // Matrix Transpose (only for rank 2)
+    Tensor<T> transpose() const {
+        if (rank_ != 2) throw std::runtime_error("Transpose only applies to 2D tensors");
+        Tensor<T> result(_dims[1], _dims[0]);
+        for (Integer i = 0; i < _dims[0]; ++i) {
+            for (Integer j = 0; j < _dims[1]; ++j) {
                 result(j, i) = (*this)(i, j);
             }
         }
         return result;
     }
-    
-    friend std::ostream& operator<<(std::ostream& os, const Matrix<T>& mat) {
-        for (size_t i = 0; i < mat.rows; ++i) {
-            for (size_t j = 0; j < mat.cols; ++j) {
-                os << mat(i, j) << " ";
+
+    Tensor<T> slice_2d(Integer dim3_idx, Integer dim4_idx) const {
+        if (rank_ != 4) {
+            throw std::runtime_error("2D slicing with 2 depths is only applicable to 4D tensors.");
+        }
+
+        Tensor<T> result(_dims[0], _dims[1]);
+
+        for (Integer i = 0; i < _dims[0]; ++i) {
+            for (Integer j = 0; j < _dims[1]; ++j) {
+                result(i, j) = (*this)(i, j, dim3_idx, dim4_idx);
             }
-            os << std::endl;
+        }
+
+        return result;
+    }
+
+    Tensor<T> slice_2d(Integer dim3_idx) const {
+        if (rank_ != 3) {
+            throw std::runtime_error("2D slicing with 1 depth is only applicable to 3D tensors.");
+        }
+
+        Tensor<T> result(_dims[0], _dims[1]);
+
+        for (Integer i = 0; i < _dims[0]; ++i) {
+            for (Integer j = 0; j < _dims[1]; ++j) {
+                result(i, j) = (*this)(i, j, dim3_idx);
+            }
+        }
+        
+        return result;
+    }
+    
+    void set_channel(Integer c, const Tensor<T>& slice) {
+        if (rank_ != 4) {
+            throw std::runtime_error("Channel assignment is only applicable to 4D tensors.");
+        }
+
+        if (slice.dims(0) != _dims[0] || slice.dims(1) != _dims[1]) {
+            throw std::runtime_error("Channel assignment requires a tensor of the same dimensions.");
+        }
+
+        for (Integer i = 0; i < _dims[0]; ++i) {
+            for (Integer j = 0; j < _dims[1]; ++j) {
+                (*this)(i, j, c) = slice(i, j);
+            }
+        }
+    }
+
+
+    Tensor<T> operator+=(const Tensor<T>& other) {
+        if (rank_ != other.rank_) {
+            throw std::runtime_error("(+=) Tensor ranks do not match.");
+        }
+
+        if (this->size() != other.size()) {
+            throw std::runtime_error("(+=) Tensor sizes do not match.");
+        }
+
+        for (Integer i = 0; i < this->size(); ++i) {
+            (*this)[i] += other[i];
+        }
+
+        return *this;
+    }
+
+    Tensor<T> operator-=(const Tensor<T>& other) {
+        if (rank_ != other.rank_) {
+            throw std::runtime_error("(-=) Tensor ranks do not match.");
+        }
+
+        if (this->size() != other.size()) {
+            throw std::runtime_error("(-=) Tensor sizes do not match.");
+        }
+
+        for (Integer i = 0; i < this->size(); ++i) {
+            (*this)[i] -= other[i];
+        }
+
+        return *this;
+    }
+
+
+    // Print Tensor Shape
+    void print_shape() const {
+        std::cout << "(";
+        for (Integer i = 0; i < rank_; ++i) {
+            std::cout << _dims[i];
+            if (i + 1 < rank_) std::cout << " x ";
+        }
+        std::cout << ")\n";
+    }
+
+    // Matrix-Vector Multiplication
+    friend Tensor<T> operator*(const Tensor<T>& mat, const Tensor<T>& vec) {
+        //std::cout << "Matrix rank: " << mat.rank_ << ", Vector rank: " << vec.rank_ << std::endl;
+        if (mat.rank_ != 2 || vec.rank_ != 1)
+            throw std::invalid_argument("Matrix-vector multiplication requires a 2D matrix and a 1D vector");
+        Integer rows = mat._dims[0];
+        Integer cols = mat._dims[1];
+        if (cols != vec._dims[0])
+            throw std::invalid_argument("Matrix columns must match vector size.");
+
+        Tensor<T> result(rows);
+        for (Integer i = 0; i < rows; ++i) {
+            T sum = 0;
+            for (Integer j = 0; j < cols; ++j) {
+                sum += mat(i, j) * vec(j);
+            }
+            result(i) = sum;
+        }
+        return result;
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const Tensor<T>& tensor) {
+        if (tensor.rank_ == 1) {
+            os << "[";
+            for (Integer i = 0; i < tensor._dims[0]; ++i) {
+                os << tensor(i);
+                if (i + 1 < tensor._dims[0]) os << ", ";
+            }
+            os << "]";
+        } else if (tensor.rank_ == 2) {
+            os << "[\n";
+            for (Integer i = 0; i < tensor._dims[0]; ++i) {
+                os << "  [";
+                for (Integer j = 0; j < tensor._dims[1]; ++j) {
+                    os << tensor(i, j);
+                    if (j + 1 < tensor._dims[1]) os << ", ";
+                }
+                os << "]";
+                if (i + 1 < tensor._dims[0]) os << ",\n";
+            }
+            os << "\n]";
+        } else {
+            os << "TODO";
         }
         return os;
     }
-
-    void print_size(std::ostream& os = std::cout) const {
-        os << "(" << rows << " x " << cols << ")" << std::endl;
-    }
-    
 };
 
-typedef Matrix<Reel> RMatrix; // Alias for real-valued matrices
+// Alias for floating-point tensors
+using RTensor = Tensor<Reel>;
 
-#endif // BASIC_DATA_H
+#endif // RTENSOR_HPP

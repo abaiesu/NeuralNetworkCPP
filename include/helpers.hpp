@@ -24,17 +24,18 @@ namespace utils {
     // ---------------------------- MISC ----------------------------
 
     Reel computeLearningRate(TypeStep tp, Reel rho, Reel alpha, Integer k);
-    void shuffle_data(std::vector<RVector>& Es, std::vector<RVector>& Ss);
-    RMatrix outerProduct(const RVector& a, const RVector& b);
+    void shuffle_data(std::vector<RTensor>& Es, std::vector<RTensor>& Ss);
+    RTensor outerProduct(const RTensor& a, const RTensor& b);
+    RTensor convolve(const RTensor& ker, const RTensor& X);
 
     // ---------------------------- LOSS FUNCTIONS ----------------------------
 
-    Reel moindre_carre(const RVector& y, const RVector& y_pred);
-    RVector d_moindre_carre(const RVector& y, const RVector& y_pred);
-    Reel moindre_abs(const RVector& y, const RVector& y_pred);
-    RVector d_moindre_abs(const RVector& y, const RVector& y_pred);
-    Reel entropie_croisee(const RVector& y, const RVector& y_pred);
-    RVector d_entropie_croisee(const RVector& y, const RVector& y_pred);
+    Reel moindre_carre(const RTensor& y, const RTensor& y_pred);
+    RTensor d_moindre_carre(const RTensor& y, const RTensor& y_pred);
+    Reel moindre_abs(const RTensor& y, const RTensor& y_pred);
+    RTensor d_moindre_abs(const RTensor& y, const RTensor& y_pred);
+    Reel entropie_croisee(const RTensor& y, const RTensor& y_pred);
+    RTensor d_entropie_croisee(const RTensor& y, const RTensor& y_pred);
 }
 
 std::ostream& operator<<(std::ostream& os, TypeLayer type);

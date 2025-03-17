@@ -35,20 +35,23 @@ int main(int argc, char *argv[]) {
         
         print("Example 1");
 
+        //RTensor test = RTensor(2, 2, 2);
+        //std :: cout << "test size" << test.size() << std::endl;
+
         double a = 2;
         double b = 3;
 
         size_t n = 1000;
 
         // Generate random x and y values
-        std::vector<RVector> data(n, RVector(2));  // Vector of pairs (x, y), each pair is a vector of size 2
+        std::vector<RTensor> data(n, RTensor(2));  // Vector of pairs (x, y), each pair is a vector of size 2
         for (size_t i = 0; i < n; i++) {
-            data[i][0] = static_cast<double>(std::rand() % 10);  // x ∈ [0, 1]
-            data[i][1] = static_cast<double>(std::rand() % 100);  // y ∈ [0, 1]
+            data[i][0] = static_cast<double>(std::rand() % 10) / 10.0;  // x ∈ [0, 1]
+            data[i][1] = static_cast<double>(std::rand() % 100) / 100.0;  // y ∈ [0, 1]
         }
 
         // Compute the labels z using the f_ex1 function
-        std::vector<RVector> labels(n, RVector(1));  // Vector of labels z, each label is a vector of size 1
+        std::vector<RTensor> labels(n, RTensor(1));  // Vector of labels z, each label is a vector of size 1
         for (size_t i = 0; i < n; i++) {
             labels[i][0] = f_ex1(data[i][0], data[i][1], a, b);
         }
@@ -65,20 +68,20 @@ int main(int argc, char *argv[]) {
         // before last layer = dense layer with the predicted label
         Integer num_layers = network.getLayers().size();
         Dense* dense_layer = dynamic_cast<Dense*>(network.getLayers()[num_layers - 2]);
-        double pred_a = dense_layer->get_W()(0, 0);
-        double pred_b = dense_layer->get_W()(0, 1);
+        double pred_a = dense_layer->W(0, 0);
+        double pred_b = dense_layer->W(0, 1);
 
         std::cout << "Predicted a: " << pred_a << std::endl;
         std::cout << "Predicted b: " << pred_b << std::endl;
 
         // now test
         Integer num_test = 5;
-        std::vector<RVector> test_data(num_test, RVector(2));  // Vector of pairs (x, y), each pair is a vector of size 2
+        std::vector<RTensor> test_data(num_test, RTensor(2));  // Vector of pairs (x, y), each pair is a vector of size 2
         for (size_t i = 0; i < test_data.size(); i++) {
             test_data[i][0] = static_cast<double>(std::rand() % 10) ;  // Random x value
             test_data[i][1] = static_cast<double>(std::rand() % 100);  // Random y value
         }
-        std::vector<RVector> test_labels(num_test, RVector(1));  // Vector of labels z, each label is a vector of size 1
+        std::vector<RTensor> test_labels(num_test, RTensor(1));  // Vector of labels z, each label is a vector of size 1
         for (size_t i = 0; i < test_labels.size(); i++) {
             test_labels[i][0] = f_ex1(test_data[i][0], test_data[i][1], a, b);
         }
@@ -92,14 +95,14 @@ int main(int argc, char *argv[]) {
         size_t n = 1000;
 
         // Generate random x and y values
-        std::vector<RVector> data(n, RVector(2));  // Vector of pairs (x, y), each pair is a vector of size 2
+        std::vector<RTensor> data(n, RTensor(2));  // Vector of pairs (x, y), each pair is a vector of size 2
         for (size_t i = 0; i < n; i++) {
             data[i][0] = static_cast<double>(std::rand() % 100) / 100;
             data[i][1] = static_cast<double>(std::rand() % 100) / 100;
         }
 
         // Compute the labels z using the f_ex2 function
-        std::vector<RVector> labels(n, RVector(1));  
+        std::vector<RTensor> labels(n, RTensor(1));  
         for (size_t i = 0; i < n; i++) {
             labels[i][0] = f_ex2(data[i][0], data[i][1]);
         }
@@ -120,14 +123,14 @@ int main(int argc, char *argv[]) {
 
         // now test
         Integer num_test = 5;
-        std::vector<RVector> test_data(num_test, RVector(2));  // Vector of pairs (x, y), each pair is a vector of size 2
+        std::vector<RTensor> test_data(num_test, RTensor(2));  // Vector of pairs (x, y), each pair is a vector of size 2
         for (size_t i = 0; i < test_data.size(); i++) {
             test_data[i][0] = static_cast<double>(std::rand() % 100) / 100;  // Random x value
             test_data[i][1] = static_cast<double>(std::rand() % 100) / 100;  // Random y value
         }
 
 
-        std::vector<RVector> test_labels(num_test, RVector(1));  // Vector of labels z, each label is a vector of size 1
+        std::vector<RTensor> test_labels(num_test, RTensor(1));  // Vector of labels z, each label is a vector of size 1
         for (size_t i = 0; i < test_labels.size(); i++) {
             test_labels[i][0] = f_ex2(test_data[i][0], test_data[i][1]);
         }
@@ -141,14 +144,14 @@ int main(int argc, char *argv[]) {
         size_t n = 10000;
 
         // Generate random x and y values
-        std::vector<RVector> data(n, RVector(2));  // Vector of pairs (x, y), each pair is a vector of size 2
+        std::vector<RTensor> data(n, RTensor(2));  // Vector of pairs (x, y), each pair is a vector of size 2
         for (size_t i = 0; i < n; i++) {
             data[i][0] = static_cast<double>(std::rand() % 100) / 100;
             data[i][1] = static_cast<double>(std::rand() % 100) / 100;
         }
 
         // Compute the labels z using the f_ex2 function
-        std::vector<RVector> labels(n, RVector(1));  
+        std::vector<RTensor> labels(n, RTensor(1));  
         for (size_t i = 0; i < n; i++) {
             labels[i][0] = f_ex2(data[i][0], data[i][1]);
         }
@@ -172,14 +175,14 @@ int main(int argc, char *argv[]) {
 
         // now test
         Integer num_test = 5;
-        std::vector<RVector> test_data(num_test, RVector(2));  // Vector of pairs (x, y), each pair is a vector of size 2
+        std::vector<RTensor> test_data(num_test, RTensor(2));  // Vector of pairs (x, y), each pair is a vector of size 2
         for (size_t i = 0; i < test_data.size(); i++) {
             test_data[i][0] = static_cast<double>(std::rand() % 100) / 100;  // Random x value
             test_data[i][1] = static_cast<double>(std::rand() % 100) / 100;  // Random y value
         }
 
 
-        std::vector<RVector> test_labels(num_test, RVector(1));  // Vector of labels z, each label is a vector of size 1
+        std::vector<RTensor> test_labels(num_test, RTensor(1));  // Vector of labels z, each label is a vector of size 1
         for (size_t i = 0; i < test_labels.size(); i++) {
             test_labels[i][0] = f_ex2(test_data[i][0], test_data[i][1]);
         }
