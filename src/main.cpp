@@ -348,24 +348,19 @@ int main(int argc, char *argv[]) {
     else if (example == 5) {
         std::cout << "Example 5 - CIFAR-10 classification" << std::endl;
 
-        // We'll read from a single batch file (e.g., data_batch_1.bin)
-        // Adjust path if needed
+
         std::string cifar_file = "src/data_batch_1.bin";
 
-        // Prepare vectors to store images (32x32x3) and labels (10)
+        // images (32x32x3) and labels (10)
         std::vector<RTensor> data;
         std::vector<RTensor> labels;
-
-        // Let's read 5000 images for training, for example
-        int limit = 500;
+        int limit = 100;
         readCifar10(cifar_file, data, labels, limit);
 
-        // Build a CNN for CIFAR-10 classification
         Network network("cifar10_classification", /*batchSize=*/32, /*epochs=*/10);
 
-        // Input layer: 32x32x3
+    
         network.add(new Entry(32, 32, 3));
-
         network.add(new Convolution(32, 3));
         network.add(new Activation(_relu));
         network.add(new Convolution(32, 3));
@@ -383,7 +378,6 @@ int main(int argc, char *argv[]) {
 
         network.print(std::cout);
 
-        //std :: cout << "Shape input layer: " << data[0].dims(0) << " x " << data[0].dims(1) << " x " << data[0].dims(2) << std::endl;
 
         // Train
         network.train(data, labels, _fixed, /*learningRate=*/0.01, /*reg=*/0.001);
@@ -399,7 +393,6 @@ int main(int argc, char *argv[]) {
 
         //network.test(test_data, test_labels); // this will print the proba vector
 
-        // Now, loop through each test example to obtain the predicted label
         int correct = 0;
         for (size_t i = 0; i < test_data.size(); i++) {
             // Forward propagate the test sample through the network
@@ -408,13 +401,9 @@ int main(int argc, char *argv[]) {
             // Assume the prediction is in the second-to-last layer (Dense layer before Loss)
             RTensor output = network.getLayers()[network.getLayers().size() - 2]->X;
             
-            // Find the index of the maximum value in the output (predicted label)
             int pred_label = 0;
             double max_val = -1;
             for (int j = 1; j < output.size(); j++) {
-                //std :: cout << "output[" << j << "] = " << output[j] << std::endl;
-                //std :: cout << "max_val = " << max_val << std::endl;
-                //Reel soft_maxed = std::exp(output[j]) / std::exp(output).sum();
                 if (output[j] > max_val) {
                     max_val = output[j];
                     pred_label = j;

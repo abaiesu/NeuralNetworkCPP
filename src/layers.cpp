@@ -162,14 +162,10 @@ void Loss::setFunPtr() {
 void Loss::forwardprop() {
     //std:: cout << "in loss forwardprop" << std::endl;
     Layer* prev = this->prevL(); // Get previous layer
-    //std :: cout << "prev is of type: " << prev->type << std::endl;
     RTensor true_labal = vref;
     RTensor pred_labal = prev->X;
     this->X = RTensor(1);
     this->X(0) = fun_Loss(true_labal, pred_labal);
-    //std :: cout << "prev->X: " << prev->X << " of size: " << prev->X.size() << std::endl;
-    //std :: cout << "vref: " << vref << std::endl;
-    //std :: cout << "X: " << X << "\n" << std::endl;
 }
 // ------------------------------- HELPERS -----------------------------------
 
@@ -642,7 +638,6 @@ void Network::add(Layer* layer) {
     else if (layer->type == _Convolution){
         Integer nb_channels_prev = layers.back()->dims[2]; //get the number of channels of the last layer of the network, for connection
         Integer n_prev = layers.back()->dims[0]; //get the size of the last layer of the network, for connection
-        //std :: cout << "nb_channels_prev: " << nb_channels_prev << " n_prev: " << n_prev << std::endl;
         dynamic_cast<Convolution*>(layer)->set_dims(nb_channels_prev, n_prev); // Cast the layer to Convolution and set its parameters
         
     }
@@ -731,10 +726,6 @@ void Network::majparametres(TypeStep tp, Reel rho, Reel alpha, Integer k) {
 
     vector<vector<vector<RTensor>>> batches; // Container for batches
 
-    // vector<RTensor> batch_Es, batch_Ss;
-    // vector<vector<RTensor>> batch;
-    // vector<vector<vector<RTensor>>> batches;
-
     // Create batches
     for (size_t i = 0; i < total_samples; i += batch_size_) {
         vector<RTensor> batch_Es, batch_Ss;
@@ -792,8 +783,6 @@ void Network::train_batch(const vector<RTensor>& batch_Es, const vector<RTensor>
             }
             majparametres(tp, rho, alpha, iteration); // Use iteration counter
             iteration++; // Increment total iteration count
-            //std::cout << "batch " << batch_idx << " success" << std::endl;
-            //std :: cout << "--";
         }
     }
 }
