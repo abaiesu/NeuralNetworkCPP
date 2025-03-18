@@ -20,6 +20,7 @@ namespace utils {
     Reel d_abs_hyper_tan(Reel x);
     Reel sigmoid(Reel x);
     Reel d_sigmoid(Reel x);
+    Reel softmax(RTensor x, Integer i);
 
     // ---------------------------- MISC ----------------------------
 
@@ -36,6 +37,8 @@ namespace utils {
     RTensor d_moindre_abs(const RTensor& y, const RTensor& y_pred);
     Reel entropie_croisee(const RTensor& y, const RTensor& y_pred);
     RTensor d_entropie_croisee(const RTensor& y, const RTensor& y_pred);
+    Reel cat_cross_entropy(const RTensor& y, const RTensor& y_pred);
+    RTensor d_cat_cross_entropy(const RTensor& y, const RTensor& y_pred);
 }
 
 std::ostream& operator<<(std::ostream& os, TypeLayer type);

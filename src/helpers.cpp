@@ -37,6 +37,15 @@ Reel d_sigmoid(Reel x) {
     return s * (1 - s);
 }
 
+Reel softmax(RTensor x, Integer i) {
+    Reel sum = 0;
+    for (Integer j = 0; j < x.size(); ++j) {
+        sum += std::exp(x[j]);
+    }
+    return std::exp(x[i]) / sum;
+}
+
+
 
 Reel computeLearningRate(TypeStep tp, Reel rho, Reel alpha, Integer k) {
     Reel step = 0;
@@ -213,9 +222,65 @@ RTensor d_entropie_croisee(const RTensor& y, const RTensor& y_pred) {
     return res;
 }
 
+Reel cat_cross_entropy(const RTensor& y, const RTensor& y_pred) {
+    if (y.rank() != 1 || y_pred.rank() != 1){
+        throw std::invalid_argument("(cat_cross_entropy) Both tensors must be vectors");
+    }
+    RTensor logits = y_pred;
+    Reel max_logit = logits[0];
+    for (size_t i = 1; i < logits.size(); ++i) {
+        if (logits[i] > max_logit)
+            max_logit = logits[i];
+    }
+
+    // Compute the denominator of the softmax
+    Reel sum_exp = 0;
+    for (size_t i = 0; i < logits.size(); ++i) {
+        sum_exp += std::exp(logits[i] - max_logit);
+    }
+
+    // Compute the loss: -sum(y[i] * log(softmax_i))
+    // where softmax_i = exp(logits[i] - max_logit) / sum_exp
+    Reel loss = 0;
+    for (size_t i = 0; i < y.size(); ++i) {
+        // log(softmax_i) = (logits[i] - max_logit) - log(sum_exp)
+        loss += y[i] * ( - (logits[i] - max_logit) + std::log(sum_exp) );
+    }
+    return loss;
+}
+
+
+RTensor d_cat_cross_entropy(const RTensor& y, const RTensor& y_pred) {
+    if (y.rank() != 1 || y_pred.rank() != 1){
+        throw std::invalid_argument("(d_cat_cross_entropy) Both tensors must be vectors");
+    }
+    RTensor logits = y_pred;
+    Reel max_logit = logits[0];
+    for (size_t i = 1; i < logits.size(); ++i) {
+        if (logits[i] > max_logit)
+            max_logit = logits[i];
+    }
+
+    // Compute softmax from logits
+    RTensor softmax(logits.size());
+    Reel sum_exp = 0;
+    for (size_t i = 0; i < logits.size(); ++i) {
+        sum_exp += std::exp(logits[i] - max_logit);
+    }
+    for (size_t i = 0; i < logits.size(); ++i) {
+        softmax[i] = std::exp(logits[i] - max_logit) / sum_exp;
+    }
+
+    // The derivative dL/dz (z = logits) is simply softmax - y.
+    RTensor res(logits.size());
+    for (size_t i = 0; i < logits.size(); ++i) {
+        res[i] = softmax[i] - y[i];
+    }
+    return res;
+
+} 
 
 } // namespace utils
-
 
 std::ostream& operator<<(std::ostream& os, TypeLayer type) {
     switch (type) {

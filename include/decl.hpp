@@ -5,8 +5,8 @@
 
 enum TypeLayer { _nondefini, _Entry, _Convolution, _Pool, _Activation, _Dense, _Loss, _Flatten};
 enum TypePool { _maxPool, _meanPool };
-enum TypeActivation { _activation_indefini, _relu, _tanh, _abs_tanh, _sigmoid};
-enum TypeLoss { _moindre_carre, _moindre_abs, _huber, _entropie_croisee, _softMax};
+enum TypeActivation { _activation_indefini, _relu, _tanh, _abs_tanh, _sigmoid, _softMax};
+enum TypeLoss { _moindre_carre, _moindre_abs, _huber, _entropie_croisee, _cat_cross_entropy};
 enum TypeStep {_fixed, _linear, _quadratic, _exponential};
 
 typedef Reel (*FR_p)(Reel); // Function pointer for activation functions

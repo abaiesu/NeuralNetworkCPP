@@ -106,7 +106,6 @@ void Dense::forwardprop() {
 */
 void Dense::backprop() {
 
-    //std::cout << "backprop DENSE" << std::endl;
     // Compute gradX 
 
     // if before the last layer (recall that the last layer is the loss layer)
@@ -115,42 +114,21 @@ void Dense::backprop() {
         RTensor true_labal = loss->get_vref();
         RTensor pred_labal = this->X;
         GradX = loss->get_dfun_Loss()(true_labal, pred_labal);
-        //std:: cout << "first layer in backprop" << std::endl;
     }else{
         Layer* next = this->nextL(); // get pointer to the next layer
         if (next->type == _Dense){
-            //std :: cout << "get dX_dPrevX_Dense Dense" << std::endl;
             GradX = dynamic_cast<Dense*>(next)->get_dX_dPrevX_Dense() * next->GradX; // only update the GradX
         }
         else if (next->type == _Activation){
-            //std :: cout << "get dX_dPrevX_Dense Actv" << std::endl;
             GradX = dynamic_cast<Activation*>(next)->get_dX_dPrevX_Dense() * next->GradX; // only update the GradX
         } else{
             std::cerr << "Dense::backprop: next layer is not Dense or Activation" << std::endl;
         }
-        //GradX = next_X_vs_PrevX * next->GradX; // only update the GradX
-        //std:: cout << "not first layer in backprop" << std::endl;
     }
     // Compute gradW and gradWm
     Layer* prev = this->prevL(); // get pointer to the previous layer
-    //std :: cout << "vecteur prev->X: " << prev->X.size() << std::endl;
-    //std :: cout << "vecteur GradX: " << GradX.size() << std::endl;
     GradW = utils::outerProduct(GradX, prev->X);
-    //std :: cout << "pass outer product" << std::endl;
-    //std :: cout << "GradW: ";
-    //GradW.print_size();
-    //std :: cout << "GradWm: ";
-    //GradWm.print_size();
-    //std :: cout << "W";
-    //W.print_size();
-    //std :: cout << "GradWm rank " << GradWm.rank() << std::endl;
-    //std :: cout << "GradW rank " << GradW.rank() << std::endl;
-    GradWm += GradW; 
-
-    //std :: cout << "end backprop dense" << std::endl;
-
-    //std::cout << "GradWm: " << GradWm << std::endl;
-    //std::cout << "\n" << std::endl;
+    GradWm += GradW;
 }
 
 
@@ -171,6 +149,10 @@ void Loss::setFunPtr() {
             fun_Loss = utils::entropie_croisee;
             dfun_Loss = utils::d_entropie_croisee;
             break;
+        case _cat_cross_entropy:
+            fun_Loss = utils::cat_cross_entropy;
+            dfun_Loss = utils::d_cat_cross_entropy;
+            break;
         default:
             throw std::invalid_argument("Invalid loss type");
     }
@@ -183,7 +165,8 @@ void Loss::forwardprop() {
     //std :: cout << "prev is of type: " << prev->type << std::endl;
     RTensor true_labal = vref;
     RTensor pred_labal = prev->X;
-    this->X = RTensor(1, (*fun_Loss)(true_labal, pred_labal));
+    this->X = RTensor(1);
+    this->X(0) = fun_Loss(true_labal, pred_labal);
     //std :: cout << "prev->X: " << prev->X << " of size: " << prev->X.size() << std::endl;
     //std :: cout << "vref: " << vref << std::endl;
     //std :: cout << "X: " << X << "\n" << std::endl;
@@ -197,16 +180,36 @@ void updateGradXFromConvolution(Layer* next, RTensor &GradX, const RTensor &X) {
     Integer ker_size_next = dynamic_cast<Convolution*>(next)->ker_size;
     RTensor W_next = dynamic_cast<Convolution*>(next)->W;
     
+    // Initialize GradX to zeros
     for (Integer i = 0; i < GradX.dims(0); i++) {
         for (Integer j = 0; j < GradX.dims(1); j++) {
-            for (Integer c = 0; c < GradX.dims(2); c++) {
-                GradX(i, j, c) = 0; // Initialize gradient to zero
-                for (Integer u = 0; u < ker_size_next; u++) {
-                    for (Integer v = 0; v < ker_size_next; v++) {
-                        for (Integer k = 0; k < next_channels; k++) {
-                            GradX(i, j, c) += 
-                                W_next(ker_size_next - 1 - u, ker_size_next - 1 - v, k, c)
-                                * next->GradX(i + u, j + v, k);
+            for (Integer k = 0; k < GradX.dims(2); k++) {
+                GradX(i, j, k) = 0;
+            }
+        }
+    }
+    
+    // Calculate the valid range for the convolution
+    Integer n_prev = GradX.dims(0);
+    Integer new_n = next->dims[0]; // Output size after convolution
+    
+    for (Integer i = 0; i < n_prev; i++) {
+        for (Integer j = 0; j < n_prev; j++) {
+            for (Integer k = 0; k < GradX.dims(2); k++) {
+                // For each position in GradX where the kernel can be applied
+                for (Integer c = 0; c < next_channels; c++) {
+                    for (Integer u = 0; u < ker_size_next; u++) {
+                        for (Integer v = 0; v < ker_size_next; v++) {
+                            // Calculate the position in next->GradX
+                            Integer next_i = i - u;
+                            Integer next_j = j - v;
+                            
+                            // Only accumulate if the position is valid in next->GradX
+                            if (next_i >= 0 && next_i < new_n && next_j >= 0 && next_j < new_n) {
+                                // Use the flipped kernel for backpropagation
+                                GradX(i, j, k) += W_next(ker_size_next - 1 - u, ker_size_next - 1 - v, k, c)
+                                    * next->GradX(next_i, next_j, c);
+                            }
                         }
                     }
                 }
@@ -214,6 +217,7 @@ void updateGradXFromConvolution(Layer* next, RTensor &GradX, const RTensor &X) {
         }
     }
 }
+
 
 // Helper function: backpropagation for a pooling next layer (mean and max)
 void updateGradXFromPooling(Layer* next, RTensor &GradX, const RTensor &X) {
@@ -307,8 +311,15 @@ void Activation::forwardprop() {
     
     Layer* prev = this->prevL(); // Get previous layer
     if (prev->type == _Dense){
-        for (Integer i = 0; i < prev->X.size(); ++i) {
-            X[i] = fun_activation(prev->X[i]);
+        if (typeA == _softMax){
+            std :: cout << "try softmax" << std::endl;
+            for (Integer i = 0; i < prev->X.size(); ++i) {
+                X[i] = utils::softmax(prev->X, i);
+            }
+        }else{
+            for (Integer i = 0; i < prev->X.size(); ++i) {
+                X[i] = fun_activation(prev->X[i]);
+            }
         }
     }
     else if (prev->type == _Convolution || prev->type == _Pool){
@@ -337,9 +348,7 @@ void Activation::backprop() {
     }else{
         if (X.rank() == 1) { // next is also 1D   
             Layer* next = this->nextL(); // get pointer to the next layer, it is a dense layer
-            //std :: cout << "Activation::trans: middle layer" << std::endl;
             GradX = (next->W).transpose() * next->GradX; 
-            //std :: cout << "Activation::done: middle layer" << std::endl;
         }else if (X.rank() == 3) { // next is also 3D
             Layer* next = this->nextL(); // Get pointer to the next layer
     
@@ -784,6 +793,7 @@ void Network::train_batch(const vector<RTensor>& batch_Es, const vector<RTensor>
             majparametres(tp, rho, alpha, iteration); // Use iteration counter
             iteration++; // Increment total iteration count
             //std::cout << "batch " << batch_idx << " success" << std::endl;
+            //std :: cout << "--";
         }
     }
 }

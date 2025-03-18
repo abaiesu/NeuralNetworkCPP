@@ -8,6 +8,79 @@
 #include "layers.hpp"
 #include "decl.hpp"
 
+void readCifar10(const std::string &path, std::vector<RTensor> &images, std::vector<RTensor> &labels, int limit = 1000) {
+    // CIFAR-10 format:
+    //   Each record = 1 label byte + 3072 image bytes (32*32*3)
+    //   We read 'limit' records from the file
+    const int image_size  = 32 * 32 * 3;   // 3072
+    const int record_size = 1 + image_size; // label + image
+
+    std::ifstream file(path, std::ios::binary);
+    if (!file.is_open()) {
+        std::cerr << "Error: could not open file: " << path << std::endl;
+        return;
+    } else {
+        std::cout << "Successfully opened file: " << path << std::endl;
+    }
+
+    // Allocate a buffer for one record
+    char *buffer = new char[record_size];
+
+    images.clear();
+    labels.clear();
+    images.reserve(limit);
+    labels.reserve(limit);
+
+    for (int i = 0; i < limit; i++) {
+        // Read one record
+        file.read(buffer, record_size);
+        if (!file) {
+            std::cerr << "Warning: reached end of file before reading all records." << std::endl;
+            break;
+        }
+
+        // First byte = label
+        unsigned char label_byte = static_cast<unsigned char>(buffer[0]);
+
+        // Next 3072 bytes = 32 x 32 x 3 image
+        // CIFAR order: first 1024 bytes = red, next 1024 = green, next 1024 = blue
+        RTensor image(32, 32, 3);
+        const int offset      = 1;        // first byte was label
+        const int plane_size  = 32 * 32;  // 1024
+
+        for (int ch = 0; ch < 3; ch++) {
+            for (int px = 0; px < plane_size; px++) {
+                int row = px / 32;
+                int col = px % 32;
+                // Normalize to [0,1]
+                unsigned char pixel_val =
+                    static_cast<unsigned char>(buffer[offset + ch * plane_size + px]);
+                image(row, col, ch) = static_cast<Reel>(pixel_val) / 255.0;
+            }
+        }
+
+        // Store the image
+        images.push_back(image);
+
+        // Create a one-hot vector for the label (10 classes)
+        RTensor one_hot(10);
+        for (int c = 0; c < 10; c++) {
+            one_hot[c] = 0.0;
+        }
+        one_hot[label_byte] = 1.0;
+
+        labels.push_back(one_hot);
+    }
+
+    delete[] buffer; // deallocate
+    file.close();
+}
+
+
+
+
+
+
 double f_ex1(double x, double y, double a, double b) {
     return a * x + b * y;
 }
@@ -227,18 +300,13 @@ int main(int argc, char *argv[]) {
             labels[i](0) = output;
         }
 
-        // Build a CNN network
         // The Entry layer now accepts a 3D input (8 x 8 x 3)
         Network network("ex4_3d_cnn", 32, 50);
         network.add(new Entry(8, 8, 3));
-        // Add a convolution layer 4 kernels of size 3 x 3
         network.add(new Convolution(4, 3));
         network.add(new Activation(_relu));
-        // Add a pooling layer (mean pooling with pool size 2 and stride 2)
         network.add(new Pool(_meanPool, 2, 2));
-        // Flatten the 3D output into a vector
         network.add(new Flatten());
-        // A Dense layer to map to 1 output
         network.add(new Dense(1));
         // Loss layer (using the mean squared error)
         network.add(new Loss(_moindre_carre));
@@ -277,9 +345,109 @@ int main(int argc, char *argv[]) {
         network.test(test_data, test_labels);
     }
             
+    else if (example == 5) {
+        std::cout << "Example 5 - CIFAR-10 classification" << std::endl;
+
+        // We'll read from a single batch file (e.g., data_batch_1.bin)
+        // Adjust path if needed
+        std::string cifar_file = "src/data_batch_1.bin";
+
+        // Prepare vectors to store images (32x32x3) and labels (10)
+        std::vector<RTensor> data;
+        std::vector<RTensor> labels;
+
+        // Let's read 5000 images for training, for example
+        int limit = 500;
+        readCifar10(cifar_file, data, labels, limit);
+
+        // Build a CNN for CIFAR-10 classification
+        Network network("cifar10_classification", /*batchSize=*/32, /*epochs=*/10);
+
+        // Input layer: 32x32x3
+        network.add(new Entry(32, 32, 3));
+
+        network.add(new Convolution(32, 3));
+        network.add(new Activation(_relu));
+        network.add(new Convolution(32, 3));
+        network.add(new Activation(_relu));
+        network.add(new Pool(_maxPool, 2, 2));
+        network.add(new Convolution(64, 3));
+        network.add(new Convolution(64, 3));
+        network.add(new Flatten());
+        network.add(new Dense(512));
+        network.add(new Activation(_relu));
+        network.add(new Dense(10)); 
+
+        // Cross-entropy loss for classification
+        network.add(new Loss(_cat_cross_entropy));
+
+        network.print(std::cout);
+
+        //std :: cout << "Shape input layer: " << data[0].dims(0) << " x " << data[0].dims(1) << " x " << data[0].dims(2) << std::endl;
+
+        // Train
+        network.train(data, labels, _fixed, /*learningRate=*/0.01, /*reg=*/0.001);
+
+        // test
+        // Prepare vectors to store images (32x32x3) and labels (10)
+        std :: cout << "testing on the traing data" << std::endl;
+        std::vector<RTensor> test_data;
+        std::vector<RTensor> test_labels;
+
+        limit = 10;
+        readCifar10(cifar_file, test_data, test_labels, limit);
+
+        //network.test(test_data, test_labels); // this will print the proba vector
+
+        // Now, loop through each test example to obtain the predicted label
+        int correct = 0;
+        for (size_t i = 0; i < test_data.size(); i++) {
+            // Forward propagate the test sample through the network
+            network.forwardprop(test_data[i], test_labels[i]);
+            
+            // Assume the prediction is in the second-to-last layer (Dense layer before Loss)
+            RTensor output = network.getLayers()[network.getLayers().size() - 2]->X;
+            
+            // Find the index of the maximum value in the output (predicted label)
+            int pred_label = 0;
+            double max_val = -1;
+            for (int j = 1; j < output.size(); j++) {
+                //std :: cout << "output[" << j << "] = " << output[j] << std::endl;
+                //std :: cout << "max_val = " << max_val << std::endl;
+                //Reel soft_maxed = std::exp(output[j]) / std::exp(output).sum();
+                if (output[j] > max_val) {
+                    max_val = output[j];
+                    pred_label = j;
+                }
+            }
+            
+            // Convert the one-hot true label into a numeric label by finding the index of the max value
+            RTensor true_onehot = test_labels[i];
+            int true_label = 0;
+            double max_true = true_onehot[0];
+            for (int j = 1; j < true_onehot.size(); j++) {
+                if (true_onehot[j] > max_true) {
+                    max_true = true_onehot[j];
+                    true_label = j;
+                }
+            }
+            
+            if (pred_label == true_label) {
+                correct++;
+            }
+            std::cout << "Test sample " << i 
+                    << ": Prediction = " << pred_label 
+                    << ", True label = " << true_label << std::endl;
+        }
+
+    }
+
+
+
+
     else {
         std::cerr << "Invalid example number" << std::endl;
     }
+
     return 0;
 }
-    
