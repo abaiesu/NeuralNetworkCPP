@@ -354,10 +354,10 @@ int main(int argc, char *argv[]) {
         // images (32x32x3) and labels (10)
         std::vector<RTensor> data;
         std::vector<RTensor> labels;
-        int limit = 100;
+        int limit = 1000;
         readCifar10(cifar_file, data, labels, limit);
 
-        Network network("cifar10_classification", /*batchSize=*/32, /*epochs=*/10);
+        Network network("cifar10_classification", /*batchSize=*/32, /*epochs=*/5);
 
     
         network.add(new Entry(32, 32, 3));
