@@ -246,7 +246,7 @@ int main(int argc, char *argv[]) {
         network.add(new Dense(1));              
         network.add(new Loss(_moindre_carre));  
         network.print(std::cout);              
-        network.train(data, labels, _fixed, 0.01, 0.001); // Train the network
+        network.train(data, labels, _fixed, 0.01, 0); // Train the network
 
         // now test
         Integer num_test = 5;
