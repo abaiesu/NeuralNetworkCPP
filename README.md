@@ -4,7 +4,10 @@ Neural Network architecture in C++
 Usage :
 
 make
+
 ./output/main ex_number
+
+ex_number can be :
 
 1 : z = ax + bx
 
