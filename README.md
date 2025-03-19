@@ -19,4 +19,4 @@ ex_number can be :
 
 5 : CIFAR (to test that the code doesn't break), way too small for actual learning
 
-The file test shows the results of the CNN architecture chosen for the CIFAR data set in Python. On the training data, 90% accuracy. On unseen data, around 50% (still better than a random guess).
+The file test.ipynb shows the results of the CNN architecture chosen for the CIFAR data set in Python. On the training data, 90% accuracy. On unseen data, around 50% (still better than a random guess).
